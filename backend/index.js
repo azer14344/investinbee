@@ -229,6 +229,7 @@ web3.eth.net.isListening()
 		// ACCOUNT: REGISTER
 		app.post('/api/account/register', async function (req, res) {
 			try {
+				
 				const { fName, 
 						mName, 
 						lName, 
@@ -236,23 +237,38 @@ web3.eth.net.isListening()
 						mobileNum, 
 						password } = req.body;
 
-				createWallet(result => {
-					con.connect(function(err) {
-						if (err) res.status(500).json({message: 'Failed to create account'});
-						var sql = "INSERT INTO tblaccounts (Type, FName, MName, LName, Email, MobileNum, Password, OwnerAddress, PrivateKey) VALUES ?";
-						var values = [
-						  ['Investor', fName, mName, lName, email, mobileNum, sha1(password + salt), result.address, result.privateKey]
-						];
-						con.query(sql, [values], function (err, result) {
-						  if (err) throw err;
-						  console.log("Successfully inserted: " + result.affectedRows);
+				if(email)
+				{
+					if(!emailAlereadyExists(email))
+					{
+						createWallet(result => {
+							con.connect(function(err) {
+								if (err) res.status(500).json({message: 'Failed to create account'});
+								var sql = "INSERT INTO tblaccounts (Type, FName, MName, LName, Email, MobileNum, Password, OwnerAddress, PrivateKey) VALUES ?";
+								var values = [
+								  ['Investor', fName, mName, lName, email, mobileNum, sha1(password + salt), result.address, result.privateKey]
+								];
+								con.query(sql, [values], function (err, result) {
+								  if (err) throw err;
+								  console.log("Successfully inserted: " + result.affectedRows);
+								});
+							});
 						});
-					});
-				});
+		
+						res.status(201).json({
+						  message: 'Successfully created an account',
+						});
+					}
+					{
+						res.status(500).json({message: 'Email already exists'});
+					}
+				}
+				else
+				{
+					res.status(500).json({message: 'No data submitted'});
+				}
 
-				res.status(201).json({
-				  message: 'Successfully created an account',
-				});
+
 			  } catch (error) {
 				console.error(error);
 				res.status(500).json({message: 'Failed to create account'});
@@ -292,3 +308,15 @@ async function buildSendTransaction(account, accountKey, data) {
 createWallet = cb => {
 	cb(web3.eth.accounts.create());
 };
+
+function emailAlereadyExists(email){
+	var state = false;
+	/*var sql = 'SELECT * FROM tblaccounts WHERE email = ?';
+	con.query(sql, [email], function (err, result) {
+		if (err) throw err;
+
+		if(result.length > 0)
+			state = true;
+	});*/
+	return state;
+}
