@@ -222,19 +222,19 @@ const salt = "xxx";
 web3.eth.net.isListening()
     .then(function() {
 
-		console.log('Connected to network');
+		console.log('Connected to ethereum network');
     	app.use(cors());
 		app.use(bodyParser.json());
 		
 		// ACCOUNT: REGISTER
 		app.post('/api/account/register', async function (req, res) {
 			try {
-				const fName = req.body.fName;
-				const mName = req.body.mName;
-				const lName = req.body.lName;
-				const email = req.body.email;
-				const mobileNum = req.body.mobileNum;
-				const password = req.body.password;
+				const { fName, 
+						mName, 
+						lName, 
+						email, 
+						mobileNum, 
+						password } = req.body;
 
 				createWallet(result => {
 					con.connect(function(err) {
@@ -260,8 +260,7 @@ web3.eth.net.isListening()
 		});
 		
 
-		const PORT = 8080; // the port where our api will be served
-
+		const PORT = 8080;
 		app.listen(PORT, () => {
 			console.log('Listening at http://localhost:' + PORT);
 		});
@@ -272,24 +271,18 @@ web3.eth.net.isListening()
 
 async function buildSendTransaction(account, accountKey, data) {
     const txParams = {
-        from: account,// sender of the transaction
-        nonce: await web3.eth.getTransactionCount(account), // incremental value
-        to: erc20Address, // address - erc20 address
-        value: 0, // if sending ether
-        gasLimit: web3.utils.toHex(10000000), //
+        from: account,
+        nonce: await web3.eth.getTransactionCount(account),
+        to: erc20Address, 
+        value: 0,
+        gasLimit: web3.utils.toHex(10000000),
         gasPrice: web3.utils.toHex(web3.utils.toWei('0', 'gwei')),
         data: data,
     }
 
-    // initialize the transaction
     const tx = new Tx(txParams);
-
-    // sign the transaction
     tx.sign(accountKey);
-
     const serializedTx = tx.serialize();
-
-    // send signed transaction to chain
     const rawTx = '0x' + serializedTx.toString('hex');
     const transaction = await web3.eth.sendSignedTransaction(rawTx);
     return transaction.transactionHash;
