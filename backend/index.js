@@ -3,6 +3,7 @@ const Tx = require('ethereumjs-tx');
 const web3 = new Web3(new Web3.providers.HttpProvider('https://k0kw6ia9j2:Nlk6vjccXvm3Z1_F4WXuWq5bR4YLgeegi3UT3JsHLww@k0jy73d24v-k0pu9805pa-rpc.kr0-aws.kaleido.io/'));
 
 const express = require("express");
+const session = require('express-session');
 var mysql = require('mysql');
 const app = express();
 const bodyParser = require('body-parser');
@@ -225,6 +226,9 @@ web3.eth.net.isListening()
 		console.log('Connected to ethereum network');
     	app.use(cors());
 		app.use(bodyParser.json());
+		app.use(session({secret: 'xyz',saveUninitialized: true,resave: true}));
+
+		var sess;
 
 		con.connect(function(err) {
 		});
@@ -239,38 +243,139 @@ web3.eth.net.isListening()
 						email, 
 						mobileNum, 
 						password } = req.body;
-
 				
-				if(await emailAlereadyExists(email)) {
-					res.status(500).json({message: 'Email already exists'});
-				}
-				else
-				{
-					createWallet(result => {
-					
-						var sql = "INSERT INTO tblaccounts (Type, FName, MName, LName, Email, MobileNum, Password, OwnerAddress, PrivateKey) VALUES ?";
-						var values = [
-							['Investor', fName, mName, lName, email, mobileNum, sha1(password + salt), result.address, result.privateKey]
-						];
-						con.query(sql, [values], function (err, result) {
-							if (err) res.status(500).json({message: 'Failed to create account'});;
-							console.log("Successfully inserted: " + result.affectedRows);
-							res.status(201).json({
-								message: 'Successfully created an account',
+				emailAlereadyExists(email, function(err, emailExists) {
+					if (err) {
+						res.status(500).json({message: 'Failed to create account'});
+					}
+					else {
+						if(emailExists) {
+							console.log('Email already exists');
+							res.status(500).json({message: 'Email already exists'});
+						}
+						else
+						{
+							createWallet(result => {
+							
+								var sql = "INSERT INTO tblaccounts (Type, FName, MName, LName, Email, MobileNum, Password, OwnerAddress, PrivateKey) VALUES ?";
+								var values = [
+									['Investor', fName, mName, lName, email, mobileNum, sha1(password + salt), result.address, result.privateKey]
+								];
+								con.query(sql, [values], function (err, result) {
+									if (err) res.status(500).json({message: 'Failed to create account'});;
+									console.log("Successfully inserted: " + result.affectedRows);
+									res.status(201).json({
+										message: 'Successfully created an account',
+									});
+								});
+								
 							});
-						});
-						
-					});
+							
+						}
+					}
+				});
 					
-				}
-					
-
 			  } catch (error) {
-				console.error(error);
 				res.status(500).json({message: 'Failed to create account'});
 			  }
 		});
 		
+		// ACCOUNT: LOGIN
+		app.post('/api/account/login', async function (req, res) {
+			try {
+				
+				const { email, 
+						password } = req.body;
+
+				var sql = "SELECT * FROM tblaccounts WHERE Email = ? AND Password = ? ";
+				var values = [email, sha1(password + salt)];
+				con.query(sql, values, function (err, result) {
+					if (err) res.status(500).json({message: 'An error occured while logging in'});
+					
+					if(parseInt(result.length) > 0)
+					{
+						sess = req.session;
+						sess.email = email;
+
+						res.status(201).json({
+							message: 'Successfully logged in. ',
+						});
+					}
+					else{
+						res.status(500).json({message: 'Incorrect login details'})
+					}
+
+					
+				});
+					
+			  } catch (error) {
+				res.status(500).json({message: 'An error occured while logging in'});
+			  }
+		});
+
+		// ACCOUNT: LOGOUT
+		app.get('/api/account/logout', async function (req, res) {
+			try {
+				
+					req.session.destroy((err) => {
+						if(err) {
+							res.status(500).json({message: 'An error occured while logging out'});
+						}
+						else
+						{
+							res.status(201).json({
+								message: 'Successfully logged out. ',
+							});
+						}
+					});
+					
+				} catch (error) {
+					res.status(500).json({message: 'An error occured while logging in'});
+				}
+		});
+
+		// ACCOUNT: PROFILE
+		app.get('/api/account/profile', function (req, res) {
+			try {
+
+				sess = req.session;
+
+				if(sess.email)
+				{
+					console.log(sess.email);
+					res.status(201).json({
+						message: 'Logged in. ',
+					});
+				}
+				else
+				{
+					res.status(500).json({message: 'Not logged in'});
+				}
+
+				/*var sql = "SELECT * FROM tblaccounts WHERE Email = ? ";
+				var values = [email, sha1(password + salt)];
+				con.query(sql, values, function (err, result) {
+					if (err) res.status(500).json({message: 'An error occured while logging in'});
+					
+					if(parseInt(result.length) > 0)
+					{
+						sess = req.session;
+						sess.email = email;
+
+						res.status(201).json({
+							message: 'Successfully logged in. ',
+						});
+					}
+					else{
+						res.status(500).json({message: 'Incorrect login details'})
+					}
+					
+				});*/
+					
+			  } catch (error) {
+				res.status(500).json({message: 'An error occured while logging in'});
+			  }
+		});
 
 		const PORT = 8080;
 		app.listen(PORT, () => {
@@ -305,22 +410,10 @@ createWallet = cb => {
 	cb(web3.eth.accounts.create());
 };
 
-function emailAlereadyExists(email){
-	var state = 0;
+function emailAlereadyExists(email, callback){
 
 	var sql = 'SELECT * FROM tblaccounts WHERE email = ?';
 	con.query(sql, [email], function (err, result) {
-		if (err) throw err;
-
-		if(result.length > 0){
-			state = 1;
-			console.log('inside', state);
-		}
-		
+		callback(err, parseInt(result.length) > 0 ? true : false);
 	});
-	
-	console.log(state);
-
-	return state;
 }
-xxx
