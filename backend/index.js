@@ -9,6 +9,9 @@ const app = express();
 const bodyParser = require('body-parser');
 const cors = require('cors');
 
+const mainAccount = '0x1eB0026940d33C032063bc770ee5823452c20343';
+const mainAccountKey = Buffer.from('2c9b7aca7e34db327b2566054e67e2f0ba2243f4bd5bd9e663ec2b3b3c4d0f6d', 'hex');
+
 // MYSQL CONNECTION
 var con = mysql.createConnection({
     host: "localhost",
@@ -232,25 +235,28 @@ web3.eth.net.isListening()
 
 		con.connect(function(err) {
 		});
+
+		(async () => {
+			let transferData = erc20Contract.methods.transfer('0x24b5ff51b5Ec52950AC5a8248D7480D44Fa06C7d', 50).encodeABI();
+    		const transfer = await buildSendTransaction(mainAccount, mainAccountKey, transferData);
+			console.log('Transfer Txhash:', transfer);
+		})
 		
 		// ACCOUNT: REGISTER
 		app.post('/api/account/register', async function (req, res) {
 			try {
 				
-				const { fName, 
-						mName, 
-						lName, 
-						email, 
-						mobileNum, 
-						password } = req.body;
+				const { fName, mName, 
+						lName, email, 
+						mobileNum, password } = req.body;
 				
 				emailAlereadyExists(email, function(err, emailExists) {
+
 					if (err) {
 						res.status(500).json({message: 'Failed to create account'});
 					}
 					else {
 						if(emailExists) {
-							console.log('Email already exists');
 							res.status(500).json({message: 'Email already exists'});
 						}
 						else
@@ -289,13 +295,16 @@ web3.eth.net.isListening()
 
 				var sql = "SELECT * FROM tblaccounts WHERE Email = ? AND Password = ? ";
 				var values = [email, sha1(password + salt)];
-				con.query(sql, values, function (err, result) {
+				con.query(sql, values, function (err, result, fields) {
 					if (err) res.status(500).json({message: 'An error occured while logging in'});
 					
 					if(parseInt(result.length) > 0)
 					{
 						sess = req.session;
-						sess.email = email;
+						sess.email = result[0].Email;
+						sess.address = result[0].OwnerAddress;
+
+						console.log(sess.address);
 
 						res.status(201).json({
 							message: 'Successfully logged in. ',
@@ -342,9 +351,29 @@ web3.eth.net.isListening()
 
 				if(sess.email)
 				{
-					console.log(sess.email);
-					res.status(201).json({
-						message: 'Logged in. ',
+					var sql = "SELECT * FROM tblaccounts WHERE Email = ? ";
+					var values = [sess.email];
+					con.query(sql, values, function (err, result) {
+						if (err) res.status(500).json({message: 'An error occured while logging in'});
+						
+						if(parseInt(result.length) > 0)
+						{
+							res.status(201).json({
+								message: 'Success', "profile":  {
+									"Type": result[0].Type,
+									"FName": result[0].FName,
+									"MName": result[0].MName,
+									"LName": result[0].LName,
+									"Email": result[0].Email,
+									"MobileNum": result[0].MobileNum,
+									"OwnerAddress": result[0].OwnerAddress
+								}
+							});
+						}
+						else{
+							res.status(500).json({message: 'Incorrect login details'})
+						}
+						
 					});
 				}
 				else
@@ -352,31 +381,69 @@ web3.eth.net.isListening()
 					res.status(500).json({message: 'Not logged in'});
 				}
 
-				/*var sql = "SELECT * FROM tblaccounts WHERE Email = ? ";
-				var values = [email, sha1(password + salt)];
-				con.query(sql, values, function (err, result) {
-					if (err) res.status(500).json({message: 'An error occured while logging in'});
-					
-					if(parseInt(result.length) > 0)
-					{
-						sess = req.session;
-						sess.email = email;
-
-						res.status(201).json({
-							message: 'Successfully logged in. ',
-						});
-					}
-					else{
-						res.status(500).json({message: 'Incorrect login details'})
-					}
-					
-				});*/
 					
 			  } catch (error) {
 				res.status(500).json({message: 'An error occured while logging in'});
 			  }
 		});
 
+		// ACCOUNT: BALANCE
+		app.get('/api/account/balance', async function (req, res) {
+			try {
+
+				sess = req.session;
+
+				if(sess.address)
+				{
+					let balance = await erc20Contract.methods.balanceOf(sess.address).call({from: sess.address});
+					console.log('Balance:', balance);
+				}
+				else
+				{
+					res.status(500).json({message: 'Not logged in'});
+				}
+
+					
+			  } catch (error) {
+				res.status(500).json({message: 'An error occured while logging in'});
+			  }
+		});
+
+		// ACCOUNT: LOAD REQUEST
+		app.post('/api/account/loadrequest', async function (req, res) {
+			try {
+				
+				const { amount } = req.body;
+				
+				sess = req.session;
+
+				if(sess.address)
+				{
+					var sql = "INSERT INTO tblloadhist (OwnerAddress, Amount, Status, DateSave) VALUES ?";
+					var values = [
+						[sess.address, parseInt(amount), 'P', Date.now()]
+					];
+					con.query(sql, [values], function (err, result) {
+						if (err) res.status(500).json({message: 'Failed to save request'});;
+						console.log("Successfully inserted request: " + result.affectedRows);
+						res.status(201).json({
+							message: 'Success',
+						});
+					});
+				}
+				else
+				{
+					res.status(500).json({message: 'Not logged in'});
+				}
+
+				
+					
+			  } catch (error) {
+				res.status(500).json({message: 'Failed to create account'});
+			  }
+		});
+
+		
 		const PORT = 8080;
 		app.listen(PORT, () => {
 			console.log('Listening at http://localhost:' + PORT);
