@@ -419,11 +419,9 @@ web3.eth.net.isListening()
 
 				if(sess.address)
 				{
-					var sql = "INSERT INTO tblloadhist (OwnerAddress, Amount, Status, DateSave) VALUES ?";
-					var values = [
-						[sess.address, parseInt(amount), 'P', Date.now()]
-					];
-					con.query(sql, [values], function (err, result) {
+					var sql = "INSERT INTO tblloadhist (OwnerAddress, Amount, Status, DateSave) VALUES (?, ?, ?, NOW())";
+					var values = [sess.address, parseInt(amount), 'P'];
+					con.query(sql, values, function (err, result) {
 						if (err) res.status(500).json({message: 'Failed to save request'});;
 						console.log("Successfully inserted request: " + result.affectedRows);
 						res.status(201).json({
