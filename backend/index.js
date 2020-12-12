@@ -1,27 +1,22 @@
-const Web3 = require('web3');
-const Tx = require('ethereumjs-tx');
-const web3 = new Web3(new Web3.providers.HttpProvider('https://k0kw6ia9j2:Nlk6vjccXvm3Z1_F4WXuWq5bR4YLgeegi3UT3JsHLww@k0jy73d24v-k0pu9805pa-rpc.kr0-aws.kaleido.io/'));
+require('dotenv').config();
 
 const express = require("express");
 const session = require('express-session');
-var mysql = require('mysql');
-const app = express();
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const sha1 = require('sha1');
+const mysql = require('mysql');
+const Web3 = require('web3');
+const Tx = require('ethereumjs-tx');
 
-const mainAccount = '0x1eB0026940d33C032063bc770ee5823452c20343';
-const mainAccountKey = Buffer.from('2c9b7aca7e34db327b2566054e67e2f0ba2243f4bd5bd9e663ec2b3b3c4d0f6d', 'hex');
+const web3 = new Web3(new Web3.providers.HttpProvider(process.env.CHAIN_URL));
+const app = express();
+const mainAccount = process.env.MAIN_ACCOUNT;
+const mainAccountKey = Buffer.from(process.env.MAIN_ACCOUNT_KEY, 'hex');
+const salt = process.env.DB_PASSWORD_SALT;
 
-// MYSQL CONNECTION
-var con = mysql.createConnection({
-    host: "localhost",
-    user: "root",
-    password: "",
-    database: "investinbee"
-  });
-
-  // ERC20
-  const erc20ABI = [
+// ERC20
+const erc20ABI = [
 	{
 		"inputs": [
 			{
@@ -217,11 +212,15 @@ var con = mysql.createConnection({
 		"type": "function"
 	}
 ];
-const erc20Address = '0x6Ac859e8158112396c9954Ce3396906DaC9a2441';
-const erc20Contract = new web3.eth.Contract(erc20ABI, erc20Address);
+const erc20Contract = new web3.eth.Contract(erc20ABI, process.env.ERC20_ADDRESS);
 
-var sha1 = require('sha1');
-const salt = "xxx";
+// MYSQL CONNECTION
+var con = mysql.createConnection({
+	host: process.env.MYSQL_HOST,
+	user: process.env.MYSQL_USER,
+	password: process.env.MYSQL_PASSWORD,
+	database: process.env.MYSQL_DATABASE
+});
 
 web3.eth.net.isListening()
     .then(function() {
