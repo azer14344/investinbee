@@ -15,19 +15,8 @@ const mainAccount = process.env.MAIN_ACCOUNT;
 const mainAccountKey = Buffer.from(process.env.MAIN_ACCOUNT_KEY, 'hex');
 const salt = process.env.DB_PASSWORD_SALT;
 
-// ERC20
-const erc20ABI = [
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "supply",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "nonpayable",
-		"type": "constructor"
-	},
+// Investment Contract
+const contractABI = [
 	{
 		"anonymous": false,
 		"inputs": [
@@ -54,52 +43,54 @@ const erc20ABI = [
 		"type": "event"
 	},
 	{
+		"anonymous": false,
 		"inputs": [
 			{
+				"indexed": true,
 				"internalType": "address",
-				"name": "spender",
+				"name": "owner",
 				"type": "address"
 			},
 			{
+				"indexed": false,
 				"internalType": "uint256",
-				"name": "amount",
+				"name": "campaignID",
+				"type": "uint256"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "value",
 				"type": "uint256"
 			}
 		],
-		"name": "approve",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "nonpayable",
-		"type": "function"
+		"name": "Invest",
+		"type": "event"
 	},
 	{
+		"anonymous": false,
 		"inputs": [
 			{
+				"indexed": true,
 				"internalType": "address",
-				"name": "recipient",
+				"name": "owner",
 				"type": "address"
 			},
 			{
+				"indexed": false,
 				"internalType": "uint256",
-				"name": "amount",
+				"name": "campaignID",
+				"type": "uint256"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "value",
 				"type": "uint256"
 			}
 		],
-		"name": "transfer",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "nonpayable",
-		"type": "function"
+		"name": "RefundInvestment",
+		"type": "event"
 	},
 	{
 		"anonymous": false,
@@ -130,35 +121,6 @@ const erc20ABI = [
 		"inputs": [
 			{
 				"internalType": "address",
-				"name": "sender",
-				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "recipient",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "amount",
-				"type": "uint256"
-			}
-		],
-		"name": "transferFrom",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
 				"name": "owner",
 				"type": "address"
 			},
@@ -177,6 +139,30 @@ const erc20ABI = [
 			}
 		],
 		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "spender",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "amount",
+				"type": "uint256"
+			}
+		],
+		"name": "approve",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "nonpayable",
 		"type": "function"
 	},
 	{
@@ -210,9 +196,62 @@ const erc20ABI = [
 		],
 		"stateMutability": "view",
 		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "recipient",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "amount",
+				"type": "uint256"
+			}
+		],
+		"name": "transfer",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "sender",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "recipient",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "amount",
+				"type": "uint256"
+			}
+		],
+		"name": "transferFrom",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function"
 	}
 ];
-const erc20Contract = new web3.eth.Contract(erc20ABI, process.env.ERC20_ADDRESS);
+const erc20Contract = new web3.eth.Contract(contractABI, process.env.CONTRACT_ADDRESS);
 
 // MYSQL CONNECTION
 var con = mysql.createConnection({
@@ -226,6 +265,7 @@ web3.eth.net.isListening()
     .then(function() {
 
 		console.log('Connected to ethereum network');
+
     	app.use(cors());
 		app.use(bodyParser.json());
 		app.use(session({
@@ -403,9 +443,7 @@ web3.eth.net.isListening()
 				console.log(req.session.address + ' balance: ' + balance);
 
 				res.status(200).json({
-					message: 'Success', result : {
-						balanceAmount: balance
-					}
+					message: 'Success', balance : balance
 				});
 					
 			} catch (error) {
@@ -437,6 +475,88 @@ web3.eth.net.isListening()
 
 			  } catch (error) {
 				res.status(500).json({message: 'Failed to create account'});
+			  }
+		});
+
+		// ADMIN: LOGIN
+		app.post('/api/admin/login', async function (req, res) {
+			try {
+				
+				const { username, 
+						password } = req.body;
+
+				var sql = 'SELECT * FROM tbladmin WHERE Username = ? AND Password = ? ';
+				var values = [username, sha1(password + salt)];
+				con.query(sql, values, function (err, result, fields) {
+
+					if (err) res.status(500).json({
+						message: 'An error occured while logging in'
+					});
+					
+					if(parseInt(result.length) > 0)
+					{
+						req.session.adminusername = result[0].Username;
+
+						console.log(req.session.adminusername + ' logged in');
+
+						res.status(200).json({
+							message: 'Successfully logged in. ',
+						});
+					}
+					else{
+						res.status(401).json({
+							message: 'Incorrect login details'
+						})
+					}
+
+					
+				});
+					
+			  } catch (error) {
+				res.status(500).json({
+					message: 'An error occured while performing action'
+				});
+			  }
+		});
+
+		// ADMIN: GET LOAD REQUESTS
+		app.get('/api/admin/getloadrequests', adminAuthenticationMiddleware, (req, res) => {
+			try {
+
+				var sql = 'SELECT * FROM tblloadhist WHERE Status = ? ';
+				var values = [reqstatus];
+				con.query(sql, values, function (err, result) {
+					if (err) res.status(500).json({
+						message: 'An error occured while logging in'
+					});
+					
+					if(parseInt(result.length) > 0)
+					{
+						res.status(200).json({
+							message: 'Success', 'profile':  {
+								Type: result[0].Type,
+								FName: result[0].FName,
+								MName: result[0].MName,
+								LName: result[0].LName,
+								Email: result[0].Email,
+								MobileNum: result[0].MobileNum,
+								OwnerAddress: result[0].OwnerAddress
+							}
+						});
+					}
+					else{
+						res.status(500).json({
+							message: 'Unable to retrieve profile'
+						})
+					}
+					
+				});
+
+					
+			  } catch (error) {
+				res.status(500).json({
+					message: 'An error occured while performing action'
+				});
 			  }
 		});
 
@@ -476,7 +596,19 @@ function authenticationMiddleware (req, res, next) {
 		return next();
 	}
 
-	res.status(401).json({message: 'Not authorized'});
+	res.status(401).json({
+		message: 'Not authorized'
+	});
+}
+
+function adminAuthenticationMiddleware (req, res, next) {
+	if (req.session.adminusername) {
+		return next();
+	}
+
+	res.status(401).json({
+		message: 'Not authorized'
+	});
 }
 
 function createWallet(callback) {
