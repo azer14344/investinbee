@@ -239,16 +239,18 @@ web3.eth.net.isListening()
 			}
 		});
 
-		
 		// ACCOUNT: REGISTER
 		app.post('/api/account/register', async function (req, res) {
 			try {
 				
-				const { fName, mName, 
-						lName, email, 
-						mobileNum, password } = req.body;
+				const { fName, 
+						mName, 
+						lName, 
+						email, 
+						mobileNum, 
+						password } = req.body;
 				
-				emailAlereadyExists(email, function(err, emailExists) {
+				emailAlreadyExists(email, function(err, emailExists) {
 
 					if (err) {
 						res.status(500).json({message: 'Failed to create account'});
@@ -467,11 +469,11 @@ async function buildSendTransaction(account, accountKey, data) {
 
 }
 
-createWallet = cb => {
+function createWallet(cb) {
 	cb(web3.eth.accounts.create());
-};
+  }
 
-function emailAlereadyExists(email, callback){
+function emailAlreadyExists(email, callback){
 
 	var sql = 'SELECT * FROM tblaccounts WHERE email = ?';
 	con.query(sql, [email], function (err, result) {
