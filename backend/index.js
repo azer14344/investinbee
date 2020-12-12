@@ -228,18 +228,17 @@ web3.eth.net.isListening()
 		console.log('Connected to ethereum network');
     	app.use(cors());
 		app.use(bodyParser.json());
-		app.use(session({secret: 'xyz',saveUninitialized: true,resave: true}));
+		app.use(session({secret: process.env.SESSION_SECRET,saveUninitialized: true,resave: true}));
 
 		var sess;
 
 		con.connect(function(err) {
+			if (err) {
+				console.log('Unable to connect to MYSQL Database');
+				process.exit(1);
+			}
 		});
 
-		(async () => {
-			let transferData = erc20Contract.methods.transfer('0x24b5ff51b5Ec52950AC5a8248D7480D44Fa06C7d', 50).encodeABI();
-    		const transfer = await buildSendTransaction(mainAccount, mainAccountKey, transferData);
-			console.log('Transfer Txhash:', transfer);
-		})
 		
 		// ACCOUNT: REGISTER
 		app.post('/api/account/register', async function (req, res) {
