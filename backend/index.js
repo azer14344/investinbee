@@ -434,8 +434,6 @@ web3.eth.net.isListening()
 					res.status(500).json({message: 'Not logged in'});
 				}
 
-				
-					
 			  } catch (error) {
 				res.status(500).json({message: 'Failed to create account'});
 			  }
