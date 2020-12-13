@@ -17,9 +17,13 @@ contract Investment is IInvestment {
     // INVESTMENT VARIABLES
     
     address _contractOwner;
+    uint _percentInterest;
     
     // OWNER => CAMPAIGN ID => AMOUNT
     mapping (address => mapping(uint256 => uint256)) _investments;
+    
+    // CAMPAIGN ID => AMOUNT
+    mapping (uint256 => uint256) _targetFunds;
     
     // CAMPAIGN ID => AMOUNT
     mapping (uint256 => uint256) _funds;
@@ -27,11 +31,14 @@ contract Investment is IInvestment {
     // CAMPAIGN ID => CampaignStatus
     mapping(uint256 => CampaignStatus) _campaignStatus;
     
-    constructor(uint256 supply) {
+    constructor(uint256 supply, uint percentInterest) {
         _totalSupply = supply;
         _balances[msg.sender] = supply;
         _contractOwner = msg.sender;
+        _percentInterest = percentInterest;
     }
+    
+    // ERC20 FUNCTIONS
     
     function totalSupply() public view override returns (uint256) {
         return _totalSupply;
@@ -41,7 +48,6 @@ contract Investment is IInvestment {
          return _balances[account];
     }
     
-
     function allowance(address owner, address spender) public view override returns (uint256) {
         return _allowances[owner][spender];
     }
@@ -56,11 +62,7 @@ contract Investment is IInvestment {
         emit Transfer(msg.sender, recipient, amount);
     }
 
-
     function approve(address spender, uint256 amount) public override returns (bool) {
-        // validate the address
-        // adjust the allowance of the spender
-        // don't validate the balances
         require(msg.sender != address(0), 'Invalid Owner Address');
         require(spender != address(0), 'Invalid Spender Address');
         _allowances[msg.sender][spender] = amount;
@@ -68,14 +70,8 @@ contract Investment is IInvestment {
     }
 
 
-    // called by the spender
     function transferFrom(address sender, address recipient, uint256 amount) public  override returns (bool) {
-        // validate address
-        // check the allowance >= amount
-        // adjust balances 
-        // deduct from the spender's allowance
-        // emit Transfer event
-        // emit Approval event
+
         require(msg.sender != address(0), 'Invalid Spender Address');
         require(sender != address(0), 'Invalid Owner Address');
         require(recipient != address(0), 'Invalid Recipient Address');
@@ -90,7 +86,7 @@ contract Investment is IInvestment {
     }
 
 
-    // _investments
+    // INVESTMENT FUNCTIONS
     
     function contractOwner() public view returns (address) {
         return _contractOwner;
@@ -116,15 +112,33 @@ contract Investment is IInvestment {
         _campaignStatus[campaignID] = campaignStatus;
     }
     
+    function setPercentInterest(uint percentInterest) public returns (bool){
+        require(msg.sender == _contractOwner, 'Not authorized to perform action');
+        
+        _percentInterest = percentInterest;
+    }
+    
+    function setTargetFund(uint256 campaignID, uint256 amount) public returns (bool){
+        require(msg.sender == _contractOwner, 'Not authorized to perform action');
+        require(amount % 100 == 0, 'Invalid Amount: Should be divisible by 100');
+        
+        _targetFunds[campaignID] = amount;
+    }
+    
     function invest(uint256 campaignID, uint256 amount) public returns (bool){
         require(msg.sender != address(0), 'Invalid Sender Address');
         require(_balances[msg.sender] >= amount, 'Insufficient Balance');
         require(_campaignStatus[campaignID] == CampaignStatus.Open, 'Campaign is not open for investment');
         require(amount % 100 == 0, 'Invalid Amount: Should be divisible by 100');
+        require(_targetFunds[campaignID] > 0, 'Target fund is not set');
         
         _balances[msg.sender] = _balances[msg.sender].sub(amount);
         _funds[campaignID] = _funds[campaignID].add(amount);
         _investments[msg.sender][campaignID] = _investments[msg.sender][campaignID].add(amount);
+        
+        if(_funds[campaignID] >= _targetFunds[campaignID]) {
+            _campaignStatus[campaignID] = CampaignStatus.Closed;
+        }
         
         emit Invest(msg.sender, campaignID, amount);
     }
@@ -150,8 +164,7 @@ contract Investment is IInvestment {
         
         
         uint256 amt = _investments[msg.sender][campaignID];
-        uint percentage = 12;
-        uint interest = amt.div(100).mul(percentage);
+        uint256 interest = amt.div(100).mul(_percentInterest);
         uint256 payOut = amt.add(interest);
         
         _funds[campaignID] = _funds[campaignID].sub(amt);
