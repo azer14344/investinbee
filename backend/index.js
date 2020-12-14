@@ -18,6 +18,22 @@ const salt = process.env.DB_PASSWORD_SALT;
 // Investment Contract
 const contractABI = [
 	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "supply",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "percentInterest",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "constructor"
+	},
+	{
 		"anonymous": false,
 		"inputs": [
 			{
@@ -41,6 +57,98 @@ const contractABI = [
 		],
 		"name": "Approval",
 		"type": "event"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "spender",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "amount",
+				"type": "uint256"
+			}
+		],
+		"name": "approve",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "campaignID",
+				"type": "uint256"
+			}
+		],
+		"name": "getPayout",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "owner",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "campaignID",
+				"type": "uint256"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "value",
+				"type": "uint256"
+			}
+		],
+		"name": "GetPayout",
+		"type": "event"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "campaignID",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "amount",
+				"type": "uint256"
+			}
+		],
+		"name": "invest",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function"
 	},
 	{
 		"anonymous": false,
@@ -68,6 +176,25 @@ const contractABI = [
 		"type": "event"
 	},
 	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "campaignID",
+				"type": "uint256"
+			}
+		],
+		"name": "refundInvestment",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
 		"anonymous": false,
 		"inputs": [
 			{
@@ -91,6 +218,97 @@ const contractABI = [
 		],
 		"name": "RefundInvestment",
 		"type": "event"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "campaignID",
+				"type": "uint256"
+			},
+			{
+				"internalType": "enum Investment.CampaignStatus",
+				"name": "campaignStatus",
+				"type": "uint8"
+			}
+		],
+		"name": "setCampaignStatus",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "percentInterest",
+				"type": "uint256"
+			}
+		],
+		"name": "setPercentInterest",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "campaignID",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "amount",
+				"type": "uint256"
+			}
+		],
+		"name": "setTargetFund",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "recipient",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "amount",
+				"type": "uint256"
+			}
+		],
+		"name": "transfer",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function"
 	},
 	{
 		"anonymous": false,
@@ -121,6 +339,35 @@ const contractABI = [
 		"inputs": [
 			{
 				"internalType": "address",
+				"name": "sender",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "recipient",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "amount",
+				"type": "uint256"
+			}
+		],
+		"name": "transferFrom",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
 				"name": "owner",
 				"type": "address"
 			},
@@ -145,35 +392,81 @@ const contractABI = [
 		"inputs": [
 			{
 				"internalType": "address",
-				"name": "spender",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "amount",
-				"type": "uint256"
-			}
-		],
-		"name": "approve",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
 				"name": "account",
 				"type": "address"
 			}
 		],
 		"name": "balanceOf",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "contractOwner",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "campaignID",
+				"type": "uint256"
+			}
+		],
+		"name": "getCampaignStatus",
+		"outputs": [
+			{
+				"internalType": "enum Investment.CampaignStatus",
+				"name": "",
+				"type": "uint8"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "campaignID",
+				"type": "uint256"
+			}
+		],
+		"name": "totalCampaignFunds",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "campaignID",
+				"type": "uint256"
+			}
+		],
+		"name": "totalInvestments",
 		"outputs": [
 			{
 				"internalType": "uint256",
@@ -195,59 +488,6 @@ const contractABI = [
 			}
 		],
 		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "recipient",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "amount",
-				"type": "uint256"
-			}
-		],
-		"name": "transfer",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "sender",
-				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "recipient",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "amount",
-				"type": "uint256"
-			}
-		],
-		"name": "transferFrom",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "nonpayable",
 		"type": "function"
 	}
 ];
@@ -285,11 +525,9 @@ web3.eth.net.isListening()
 		app.post('/api/account/register', async function (req, res) {
 			try {
 				
-				const { fName, 
-						mName, 
+				const { fName,  
 						lName, 
 						email, 
-						mobileNum, 
 						password } = req.body;
 				
 				emailAlreadyExists(email, function(err, emailExists) {
@@ -305,9 +543,9 @@ web3.eth.net.isListening()
 						{
 							createWallet(result => {
 							
-								var sql = 'INSERT INTO tblaccounts (Type, FName, MName, LName, Email, MobileNum, Password, OwnerAddress, PrivateKey) VALUES ?';
-								var values = [
-									['Investor', fName, mName, lName, email, mobileNum, sha1(password + salt), result.address, result.privateKey]
+								const sql = 'INSERT INTO tblaccounts (Type, FName, LName, Email, Password, OwnerAddress, PrivateKey) VALUES ?';
+								const values = [
+									['Investor', fName, lName, email, sha1(password + salt), result.address, result.privateKey]
 								];
 								con.query(sql, [values], function (err, result) {
 									if (err) res.status(500).json({
@@ -338,8 +576,8 @@ web3.eth.net.isListening()
 				const { email, 
 						password } = req.body;
 
-				var sql = 'SELECT * FROM tblaccounts WHERE Email = ? AND Password = ? ';
-				var values = [email, sha1(password + salt)];
+				const sql = 'SELECT * FROM tblaccounts WHERE Email = ? AND Password = ? ';
+				const values = [email, sha1(password + salt)];
 				con.query(sql, values, function (err, result, fields) {
 
 					if (err) res.status(500).json({
@@ -395,8 +633,8 @@ web3.eth.net.isListening()
 		app.get('/api/account/profile', authenticationMiddleware, (req, res) => {
 			try {
 
-				var sql = 'SELECT * FROM tblaccounts WHERE Email = ? ';
-				var values = [req.session.email];
+				const sql = 'SELECT * FROM tblaccounts WHERE Email = ? ';
+				const values = [req.session.email];
 				con.query(sql, values, function (err, result) {
 					if (err) res.status(500).json({
 						message: 'An error occured while logging in'
@@ -453,14 +691,14 @@ web3.eth.net.isListening()
 			}
 		});
 
-		// ACCOUNT: LOAD REQUEST
-		app.post('/api/account/loadrequest', authenticationMiddleware, async function (req, res) {
+		// ACCOUNT: REQUEST CASH IN
+		app.post('/api/account/requestcashin', authenticationMiddleware, async function (req, res) {
 			try {
 				
 				const { amount } = req.body;
 				
-				var sql = 'INSERT INTO tblloadhist (OwnerAddress, Amount, Status, DateSave) VALUES (?, ?, ?, NOW())';
-				var values = [req.session.address, parseInt(amount), 'P'];
+				const sql = 'INSERT INTO tblloadhist (OwnerAddress, Amount, Status, DateSave) VALUES (?, ?, ?, NOW())';
+				const values = [req.session.address, parseInt(amount), 'P'];
 				con.query(sql, values, function (err, result) {
 					if (err) res.status(500).json({
 						message: 'Failed to create request'
@@ -485,8 +723,8 @@ web3.eth.net.isListening()
 				const { username, 
 						password } = req.body;
 
-				var sql = 'SELECT * FROM tbladmin WHERE Username = ? AND Password = ? ';
-				var values = [username, sha1(password + salt)];
+				const sql = 'SELECT * FROM tbladmin WHERE Username = ? AND Password = ? ';
+				const values = [username, sha1(password + salt)];
 				con.query(sql, values, function (err, result, fields) {
 
 					if (err) res.status(500).json({
@@ -519,12 +757,27 @@ web3.eth.net.isListening()
 			  }
 		});
 
-		// ADMIN: GET LOAD REQUESTS
-		app.get('/api/admin/getloadrequests', adminAuthenticationMiddleware, (req, res) => {
+		// ADMIN: CASH IN REQUESTS
+		app.get('/api/admin/cashinrequests/:status', adminAuthenticationMiddleware, (req, res) => {
 			try {
 
-				var sql = 'SELECT * FROM tblloadhist WHERE Status = ? ';
-				var values = [reqstatus];
+				const reqstatus = req.params.status;
+
+				const sql = 'SELECT lh.RKEY, '
+							+ ' lh.OwnerAddress, ' 
+							+ ' lh.Amount, '
+							+ ' lh.Status, '
+							+ ' lh.DateSave, '
+							+ ' acc.FName, '
+							+ ' acc.MName, '
+							+ ' acc.LName, '
+							+ ' acc.Email, '
+							+ ' acc.MobileNum '
+							+ ' FROM tblloadhist lh '
+							+ 'LEFT OUTER JOIN tblaccounts acc ON acc.OwnerAddress = lh.OwnerAddress '
+							+ 'WHERE lh.Status = ? ';
+
+				const values = [reqstatus];
 				con.query(sql, values, function (err, result) {
 					if (err) res.status(500).json({
 						message: 'An error occured while logging in'
@@ -533,20 +786,12 @@ web3.eth.net.isListening()
 					if(parseInt(result.length) > 0)
 					{
 						res.status(200).json({
-							message: 'Success', 'profile':  {
-								Type: result[0].Type,
-								FName: result[0].FName,
-								MName: result[0].MName,
-								LName: result[0].LName,
-								Email: result[0].Email,
-								MobileNum: result[0].MobileNum,
-								OwnerAddress: result[0].OwnerAddress
-							}
+							message: 'Success', 'CashInRequests':  result
 						});
 					}
 					else{
 						res.status(500).json({
-							message: 'Unable to retrieve profile'
+							message: 'Unable to retrieve records'
 						})
 					}
 					
@@ -558,6 +803,143 @@ web3.eth.net.isListening()
 					message: 'An error occured while performing action'
 				});
 			  }
+		});
+
+		// ADMIN: APPROVE CASH IN REQUESTS
+		app.post('/api/admin/approvecashin', adminAuthenticationMiddleware, async function (req, res) {
+			try {
+					const rkey = req.body.id;
+					const sql = 'UPDATE tblloadhist SET Status = ? WHERE RKEY = ?';
+					const values = ['S', rkey];
+					con.query(sql, values, function (err, result) {
+						if (err) res.status(500).json({
+							message: 'An error occured while performing action'
+						});
+						
+						if(result.affectedRows > 0)
+						{
+							getLoadRequestDetails(rkey, async function(err, details) {
+
+								const recipient = details[0].OwnerAddress;
+								const transferAmt = details[0].Amount;
+								let transferData = await erc20Contract.methods.transfer(recipient, transferAmt).encodeABI();
+								const transfer =  buildSendTransaction(mainAccount, mainAccountKey, transferData);
+
+								
+
+								res.status(201).json({
+									message: 'Success'
+								});
+								console.log("Approved cash in request");
+							});
+							
+						}
+						else{
+							res.status(400).json({
+								message: 'Invalid ID provided'
+							});
+						}
+						
+						
+					});
+
+					
+				} catch (error) {
+					res.status(500).json({
+						message: 'An error occured while performing action'
+					});
+				}
+		});
+
+		// ADMIN: CREATE CAMPAIGN
+		app.post('/api/admin/createcampaign', adminAuthenticationMiddleware, async function (req, res) {
+			try {
+				const { name, 
+						description, 
+						location,
+						targetFund,
+						status } = req.body;
+
+					const sql = 'INSERT INTO tblcampaign (Name, Description, Location, TargetFund, Status) VALUES (?,?,?,?,?)';
+					const values = [name, description, location, targetFund, status];
+					con.query(sql, values, async function (err, result) {
+						if (err) res.status(500).json({
+							message: 'An error occured while performing action'
+						});
+						
+						if(result.affectedRows > 0)
+						{
+							
+							const campaignID = result.insertId;
+
+							let campaignStatusData = await erc20Contract.methods.setCampaignStatus(campaignID, 2).encodeABI();
+							const setCampaignStatus =  buildSendTransaction(mainAccount, mainAccountKey, campaignStatusData);
+							
+
+
+
+							console.log("Created campaign ", campaignID);
+							res.status(201).json({
+								message: 'Success'
+							});
+							
+							
+						}
+						else{
+							res.status(400).json({
+								message: 'Incomplete details'
+							});
+						}
+						
+					});
+
+					
+				} catch (error) {
+					res.status(500).json({
+						message: 'An error occured while performing action'
+					});
+				}
+		});
+
+		// ADMIN: GET CAMPAIGN STATUS
+		app.get('/api/admin/getcampaignstatus/:campaignId', adminAuthenticationMiddleware, async function (req, res) {
+			try {
+
+				const campaignId = req.params.campaignId;
+
+				let campaignStatus = await erc20Contract.methods.getCampaignStatus(campaignId).call({from: mainAccount});
+				//console.log('Get campaign status:', campaignStatus, ':', campaignStatus);
+				
+				res.status(201).json({
+					message: 'Success', campaignStatus: campaignStatus 
+				});
+			} catch (error) {
+				console.log(error);
+				res.status(500).json({
+					message: 'An error occured while performing action. '
+				});
+			}
+		});
+
+		// ADMIN: BALANCE
+		app.get('/api/admin/balance', adminAuthenticationMiddleware, async function (req, res) {
+			try {
+
+				let balance = await erc20Contract.methods.balanceOf(mainAccount).call({
+					from: mainAccount
+				});
+
+				console.log('Main account balance: ' + balance);
+
+				res.status(200).json({
+					message: 'Success', balance : balance
+				});
+					
+			} catch (error) {
+				res.status(500).json({
+					message: 'An error occured while performing action'
+				});
+			}
 		});
 
 		const PORT = 8080;
@@ -575,7 +957,7 @@ async function buildSendTransaction(account, accountKey, data) {
     const txParams = {
         from: account,
         nonce: await web3.eth.getTransactionCount(account),
-        to: erc20Address, 
+        to: process.env.CONTRACT_ADDRESS, 
         value: 0,
         gasLimit: web3.utils.toHex(10000000),
         gasPrice: web3.utils.toHex(web3.utils.toWei('0', 'gwei')),
@@ -619,5 +1001,12 @@ function emailAlreadyExists(email, callback){
 	var sql = 'SELECT * FROM tblaccounts WHERE email = ?';
 	con.query(sql, [email], function (err, result) {
 		callback(err, parseInt(result.length) > 0 ? true : false);
+	});
+}
+
+async function getLoadRequestDetails(id, callback){
+	var sql = 'SELECT * FROM tblloadhist WHERE RKEY = ?';
+	con.query(sql, [id], function (err, result) {
+		callback(err, result);
 	});
 }
