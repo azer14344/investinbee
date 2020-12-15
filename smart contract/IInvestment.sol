@@ -85,5 +85,10 @@ interface IInvestment {
      */
     event RefundInvestment(address indexed owner, uint256 campaignID, uint256 value);
     
+    /**
+     * @dev Emitted when `spender` gets payout from investment
+     */
+    event GetPayout(address indexed owner, uint256 campaignID, uint256 value);
+    
     
 }

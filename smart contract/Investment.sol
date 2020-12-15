@@ -108,7 +108,6 @@ contract Investment is IInvestment {
         require(msg.sender != address(0), 'Invalid Sender Address');
         require(msg.sender == _contractOwner, 'Not authorized to perform action');
         
-        
         _campaignStatus[campaignID] = campaignStatus;
     }
     
@@ -172,7 +171,7 @@ contract Investment is IInvestment {
         _balances[msg.sender] = _balances[msg.sender].add(payOut);
         _totalSupply = _totalSupply.add(interest);
         
-        emit RefundInvestment(msg.sender, campaignID, amt);
+        emit GetPayout(msg.sender, campaignID, amt);
     }
     
 }

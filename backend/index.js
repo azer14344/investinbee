@@ -2,12 +2,14 @@ require('dotenv').config();
 
 const express = require('express');
 const session = require('express-session');
+const cookieParser = require('cookie-parser');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const sha1 = require('sha1');
 const mysql = require('mysql');
 const Web3 = require('web3');
 const Tx = require('ethereumjs-tx');
+const { request } = require('express');
 
 const web3 = new Web3(new Web3.providers.HttpProvider(process.env.CHAIN_URL));
 const app = express();
@@ -506,12 +508,21 @@ web3.eth.net.isListening()
 
 		console.log('Connected to ethereum network');
 
-    	app.use(cors());
+    	app.use(cors({
+			origin: ['http://localhost:8080', 'http://localhost:3000'],
+			methods: ['GET', 'POST', 'DELETE'],
+			credentials: true
+		}));
+		app.use(cookieParser());
+		app.use(bodyParser.urlencoded({ extended: true }));
 		app.use(bodyParser.json());
 		app.use(session({
 			secret: process.env.SESSION_SECRET,
 			saveUninitialized: true,
 			resave: true,
+			cookie:  {
+				expires: 60*1000
+			}
 		}));
 
 		con.connect(function(err) {
@@ -568,8 +579,8 @@ web3.eth.net.isListening()
 				res.status(500).json({message: 'Failed to create account'});
 			  }
 		});
-		
-		// ACCOUNT: LOGIN
+
+		// ACCOUNT: LOG IN
 		app.post('/api/account/login', async function (req, res) {
 			try {
 				
@@ -611,6 +622,27 @@ web3.eth.net.isListening()
 			  }
 		});
 
+		// ACCOUNT: IS LOGGED IN
+		app.get('/api/account/login', async function (req, res) {
+			try {
+				
+				if (req.session.email) {
+					res.status(200).json({
+						message: 'Logged In'
+					});
+				}
+			
+				res.status(401).json({
+					message: 'Not authorized'
+				});
+					
+			} catch (error) {
+			res.status(500).json({
+				message: 'An error occured while performing action'
+			});
+			}
+		});
+
 		// ACCOUNT: LOGOUT
 		app.delete('/api/account/logout', (req, res) => {
 			try {
@@ -629,6 +661,7 @@ web3.eth.net.isListening()
 			
 		});
 
+
 		// ACCOUNT: PROFILE
 		app.get('/api/account/profile', authenticationMiddleware, (req, res) => {
 			try {
@@ -642,6 +675,7 @@ web3.eth.net.isListening()
 					
 					if(parseInt(result.length) > 0)
 					{
+						console.log('Get profile ', result[0].FName + ' ' + result[0].LName)
 						res.status(200).json({
 							message: 'Success', 'profile':  {
 								Type: result[0].Type,
@@ -655,6 +689,7 @@ web3.eth.net.isListening()
 						});
 					}
 					else{
+						console.log('Unable to retrieve profile');
 						res.status(500).json({
 							message: 'Unable to retrieve profile'
 						})
@@ -713,6 +748,173 @@ web3.eth.net.isListening()
 
 			  } catch (error) {
 				res.status(500).json({message: 'Failed to create account'});
+			  }
+		});
+
+		// ACCOUNT: CASH IN
+		app.post('/api/account/cashin', authenticationMiddleware, async function (req, res) {
+			try {
+				
+				const { amount } = req.body;
+				
+				const sql = 'INSERT INTO tbltransactions (OwnerAddress, Type, Amount, DTSave) VALUES (?, ?, ?, NOW())';
+				const values = [req.session.address, 'Credit', parseInt(amount)];
+				con.query(sql, values, async function (err, result) {
+					if (err) res.status(500).json({
+						message: 'Failed to perform transaction'
+					});
+
+					const recipient = req.session.address;
+					const transferAmt = amount;
+					let transferData = await erc20Contract.methods.transfer(recipient, transferAmt).encodeABI();
+					const transfer =  buildSendTransaction(mainAccount, mainAccountKey, transferData);
+					console.log('Successfully deposited ' + amount + ' to ' + req.session.address);
+
+					res.status(201).json({
+						message: 'Success',
+					});
+				});
+
+			  } catch (error) {
+				res.status(500).json({message: 'Failed to perform transaction'});
+			  }
+		});
+
+
+		// ACCOUNT: WALLET TRANSACTIONS
+		app.get('/api/account/wallettransactions', authenticationMiddleware, (req, res) => {
+			try {
+
+				const sql = 'SELECT *, DATE_FORMAT(DTSave, "%M %d %Y") as DTDisp FROM tbltransactions WHERE OwnerAddress = ? ORDER BY DTSave DESC ';
+
+				const values = [req.session.address];
+				con.query(sql, values, function (err, result) {
+					if (err) res.status(500).json({
+						message: 'An error occured while performing action'
+					});
+					
+					if(parseInt(result.length) > 0)
+					{
+						res.status(200).json({
+							message: 'Success', walletTransactions:  result
+						});
+					}
+					else{
+						res.status(500).json({
+							message: 'Unable to retrieve records'
+						})
+					}
+					
+				});
+
+					
+			  } catch (error) {
+				res.status(500).json({
+					message: 'An error occured while performing action'
+				});
+			  }
+		});
+
+		// ACCOUNT: GET CAMPAIGN DETAILS
+		app.get('/api/account/getcampaigndetails/:id', authenticationMiddleware, (req, res) => {
+			try {
+
+				const id  = req.params.id;
+
+				console.log('Campaign Details:', id);
+				const sql = 'SELECT * FROM tblcampaign WHERE RKEY = ?';
+
+				const values = [id];
+				con.query(sql, values, function (err, result) {
+					if (err) res.status(500).json({
+						message: 'An error occured while performing action'
+					});
+					
+					if(parseInt(result.length) > 0)
+					{
+						res.status(200).json({
+							message: 'Success', campaign:  result
+						});
+					}
+					else{
+						res.status(500).json({
+							message: 'Unable to retrieve record'
+						})
+					}
+					
+				});
+
+					
+			  } catch (error) {
+				res.status(500).json({
+					message: 'An error occured while performing action'
+				});
+			  }
+		});
+
+		// ACCOUNT: GET AVAILABLE CAMPAIGNS
+		app.get('/api/account/getavailablecampaigns', authenticationMiddleware, (req, res) => {
+			try {
+
+				const sql = 'SELECT * FROM tblcampaign WHERE Status = ?';
+
+				const values = ['Open'];
+				con.query(sql, values, function (err, result) {
+					if (err) res.status(500).json({
+						message: 'An error occured while performing action'
+					});
+					
+					if(parseInt(result.length) > 0)
+					{
+						res.status(200).json({
+							message: 'Success', campaigns:  result
+						});
+					}
+					else{
+						res.status(500).json({
+							message: 'Unable to retrieve records'
+						})
+					}
+					
+				});
+
+					
+			  } catch (error) {
+				res.status(500).json({
+					message: 'An error occured while performing action'
+				});
+			  }
+		});
+
+		// ACCOUNT: INVEST
+		app.post('/api/account/invest', authenticationMiddleware, async function (req, res) {
+			try {
+				
+				const { amount, campaignId } = req.body;
+				
+				const sql = 'INSERT INTO tbltransactions (OwnerAddress, Type, Amount, DTSave) VALUES (?, ?, ?, NOW())';
+				const values = [req.session.address, 'Invest', parseInt(amount)];
+				con.query(sql, values, async function (err, result) {
+					if (err) res.status(500).json({
+						message: 'Failed to perform transaction'
+					});
+
+					getProfile(rkey, async function(err, details) {
+
+						let investData = await erc20Contract.methods.invest(campaignId, amount).encodeABI();
+						const invest =  buildSendTransaction(req.session.address, details[0].PrivateKey, investData);
+						console.log('Successfully invested ' + amount + ' to ' + campaignId);
+
+						res.status(201).json({
+							message: 'Success',
+						});
+					});
+
+					
+				});
+
+			  } catch (error) {
+				res.status(500).json({message: 'Failed to perform transaction'});
 			  }
 		});
 
@@ -780,7 +982,7 @@ web3.eth.net.isListening()
 				const values = [reqstatus];
 				con.query(sql, values, function (err, result) {
 					if (err) res.status(500).json({
-						message: 'An error occured while logging in'
+						message: 'An error occured'
 					});
 					
 					if(parseInt(result.length) > 0)
@@ -875,9 +1077,6 @@ web3.eth.net.isListening()
 							let campaignStatusData = await erc20Contract.methods.setCampaignStatus(campaignID, 2).encodeABI();
 							const setCampaignStatus =  buildSendTransaction(mainAccount, mainAccountKey, campaignStatusData);
 							
-
-
-
 							console.log("Created campaign ", campaignID);
 							res.status(201).json({
 								message: 'Success'
@@ -987,7 +1186,7 @@ function adminAuthenticationMiddleware (req, res, next) {
 	if (req.session.adminusername) {
 		return next();
 	}
-
+	console.log('not authorized');
 	res.status(401).json({
 		message: 'Not authorized'
 	});
@@ -1007,6 +1206,13 @@ function emailAlreadyExists(email, callback){
 async function getLoadRequestDetails(id, callback){
 	var sql = 'SELECT * FROM tblloadhist WHERE RKEY = ?';
 	con.query(sql, [id], function (err, result) {
+		callback(err, result);
+	});
+}
+
+async function getProfile(email, callback){
+	var sql = 'SELECT * FROM tblaccounts WHERE Email = ?';
+	con.query(sql, [email], function (err, result) {
 		callback(err, result);
 	});
 }
