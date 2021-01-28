@@ -95,6 +95,10 @@ contract Investment is IInvestment {
     function getCampaignStatus(uint256 campaignID) public view returns (CampaignStatus) {
         return _campaignStatus[campaignID];
     }
+
+    function getTargetFund(uint256 campaignID) public view returns (CampaignStatus) {
+        return _campaignStatus[campaignID];
+    }
     
     function totalInvestments(uint256 campaignID) public view returns (uint256) {
         return _investments[msg.sender][campaignID];

@@ -267,30 +267,6 @@ const contractABI = [
 	{
 		"inputs": [
 			{
-				"internalType": "uint256",
-				"name": "campaignID",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "amount",
-				"type": "uint256"
-			}
-		],
-		"name": "setTargetFund",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
 				"internalType": "address",
 				"name": "recipient",
 				"type": "address"
@@ -449,6 +425,25 @@ const contractABI = [
 				"type": "uint256"
 			}
 		],
+		"name": "getPaymentClaimed",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "campaignID",
+				"type": "uint256"
+			}
+		],
 		"name": "totalCampaignFunds",
 		"outputs": [
 			{
@@ -521,7 +516,7 @@ web3.eth.net.isListening()
 			saveUninitialized: true,
 			resave: true,
 			cookie:  {
-				expires: 60*1000
+				expires: 60*24*1000
 			}
 		}));
 
@@ -768,11 +763,14 @@ web3.eth.net.isListening()
 					const transferAmt = amount;
 					let transferData = await erc20Contract.methods.transfer(recipient, transferAmt).encodeABI();
 					const transfer =  buildSendTransaction(mainAccount, mainAccountKey, transferData);
-					console.log('Successfully deposited ' + amount + ' to ' + req.session.address);
-
-					res.status(201).json({
-						message: 'Success',
+					//console.log('Successfully deposited ' + amount + ' to ' + req.session.address);
+					transfer.then(function(){
+						res.status(201).json({
+							message: 'Success',
+						});
 					});
+
+					
 				});
 
 			  } catch (error) {
@@ -822,7 +820,9 @@ web3.eth.net.isListening()
 				const id  = req.params.id;
 
 				console.log('Campaign Details:', id);
-				const sql = 'SELECT * FROM tblcampaign WHERE RKEY = ?';
+				const sql = 'SELECT c.*, IFNULL(amtreached.AmountReached, 0) as AmountReached FROM tblcampaign c ' + 
+							'LEFT OUTER JOIN (SELECT CampaignID, Sum(Amount) as AmountReached FROM tbltransactions WHERE Type = \'Invest\' Group by CampaignID) amtreached ON amtreached.CampaignID = c.RKEY '
+							'WHERE c.RKEY = ?';
 
 				const values = [id];
 				con.query(sql, values, function (err, result) {
@@ -856,7 +856,9 @@ web3.eth.net.isListening()
 		app.get('/api/account/getavailablecampaigns', authenticationMiddleware, (req, res) => {
 			try {
 
-				const sql = 'SELECT * FROM tblcampaign WHERE Status = ?';
+				const sql = 'SELECT c.*, IFNULL(amtreached.AmountReached, 0) as AmountReached FROM tblcampaign c ' + 
+							'LEFT OUTER JOIN (SELECT CampaignID, Sum(Amount) as AmountReached FROM tbltransactions WHERE Type = \'Invest\' Group by CampaignID) amtreached ON amtreached.CampaignID = c.RKEY '
+							'WHERE c.Status = ?';
 
 				const values = ['Open'];
 				con.query(sql, values, function (err, result) {
@@ -892,29 +894,152 @@ web3.eth.net.isListening()
 				
 				const { amount, campaignId } = req.body;
 				
-				const sql = 'INSERT INTO tbltransactions (OwnerAddress, Type, Amount, DTSave) VALUES (?, ?, ?, NOW())';
-				const values = [req.session.address, 'Invest', parseInt(amount)];
+				const sql = 'INSERT INTO tbltransactions (OwnerAddress, Type, Amount, DTSave, CampaignID) VALUES (?, ?, ?, NOW(), ?)';
+				const values = [req.session.address, 'Invest', parseInt(amount), campaignId];
 				con.query(sql, values, async function (err, result) {
 					if (err) res.status(500).json({
 						message: 'Failed to perform transaction'
 					});
 
-					getProfile(rkey, async function(err, details) {
+					getProfile(req.session.email, async function(err, details) {
 
+						const currentkey = Buffer.from(details[0].PrivateKey.substring(2), 'hex');
+						
 						let investData = await erc20Contract.methods.invest(campaignId, amount).encodeABI();
-						const invest =  buildSendTransaction(req.session.address, details[0].PrivateKey, investData);
-						console.log('Successfully invested ' + amount + ' to ' + campaignId);
+						const invest =  buildSendTransaction(req.session.address, currentkey, investData);
 
-						res.status(201).json({
-							message: 'Success',
+						invest.then(function(){
+							console.log('Successfully invested ' + amount + ' to ' + campaignId + ' txn hash ' + invest);
+
+							res.status(201).json({
+								message: 'Success',
+							});
 						});
 					});
-
 					
 				});
 
 			  } catch (error) {
 				res.status(500).json({message: 'Failed to perform transaction'});
+			  }
+		});
+
+		// ACCOUNT: CLAIM PAYMENT
+		app.post('/api/account/claimpayment', authenticationMiddleware, async function (req, res) {
+			try {
+				
+				const { campaignId } = req.body;
+
+				getProfile(req.session.email, async function(err, details) {
+
+					const currentkey = Buffer.from(details[0].PrivateKey.substring(2), 'hex');
+
+					let claimPaymentData = await erc20Contract.methods.getPayout(campaignId).encodeABI();
+					const claimpPayment =  buildSendTransaction(req.session.address, currentkey, claimPaymentData);
+					
+					claimpPayment.then(async function(){
+
+						let paymentClaimed = await erc20Contract.methods.getPaymentClaimed(campaignId).call({
+							from: req.session.address
+						});
+
+						const sql = 'INSERT INTO tblpaymentclaims (OwnerAddress, CampainID, AmountClaimed, DTClaimed) VALUES (?, ?, ?, NOW())';
+						const values = [req.session.address, campaignId, paymentClaimed];
+						con.query(sql, values, async function (err, result) {
+							if (err) res.status(500).json({
+								message: 'Failed to perform transaction'
+							});
+
+							console.log('Successfully claimed ' + paymentClaimed + ' from ' + campaignId);
+
+							res.status(201).json({
+								message: 'Success',
+							});
+							
+						});
+
+					});
+				});
+
+
+			  } catch (error) {
+				res.status(500).json({message: 'Failed to perform transaction'});
+			  }
+		});
+
+		// ACCOUNT: GET INVESTMENT LIST
+		app.get('/api/account/getinvestmentlist', authenticationMiddleware, (req, res) => {
+			try {
+
+				const sql = 'SELECT c.RKEY, SUM(trans.amount) as Amount, c.Name, c.Description, c.Status, pc.AmountClaimed ' +
+							'FROM tbltransactions trans ' +
+							'LEFT OUTER JOIN tblcampaign c ON c.RKEY = trans.CampaignID ' +
+							'LEFT OUTER JOIN tblpaymentclaims pc ON pc.OwnerAddress = trans.OwnerAddress AND pc.CampainID = c.RKEY ' +
+							'WHERE trans.Type = ? and trans.OwnerAddress = ? '+
+							'GROUP BY c.RKEY ';
+
+				const values = ['Invest', req.session.address];
+				con.query(sql, values, function (err, result) {
+					if (err) res.status(500).json({
+						message: 'An error occured while performing action'
+					});
+					
+					if(parseInt(result.length) > 0)
+					{
+						res.status(200).json({
+							message: 'Success', investments:  result
+						});
+					}
+					else{
+						res.status(500).json({
+							message: 'Unable to retrieve records'
+						})
+					}
+					
+				});
+
+					
+			  } catch (error) {
+				res.status(500).json({
+					message: 'An error occured while performing action'
+				});
+			  }
+		});
+
+		// ACCOUNT: GET PAYMENT CLAIM LIST
+		app.get('/api/account/getpaymentclaimlist', authenticationMiddleware, (req, res) => {
+			try {
+
+				const sql = 'SELECT DATE_FORMAT(pc.DTClaimed, "%M %d %Y") as DTClaimed, pc.AmountClaimed, c.Name ' +
+							'FROM tblpaymentclaims pc  ' +
+							'LEFT OUTER JOIN tblcampaign c ON c.RKEY = pc.CampainID  ' +
+							'WHERE pc.OwnerAddress = ?';
+
+				const values = [req.session.address];
+				con.query(sql, values, function (err, result) {
+					if (err) res.status(500).json({
+						message: 'An error occured while performing action'
+					});
+					
+					if(parseInt(result.length) > 0)
+					{
+						res.status(200).json({
+							message: 'Success', paymentclaims:  result
+						});
+					}
+					else{
+						res.status(500).json({
+							message: 'Unable to retrieve records'
+						})
+					}
+					
+				});
+
+					
+			  } catch (error) {
+				res.status(500).json({
+					message: 'An error occured while performing action'
+				});
 			  }
 		});
 
@@ -1060,10 +1185,11 @@ web3.eth.net.isListening()
 						description, 
 						location,
 						targetFund,
-						status } = req.body;
+						status,
+						imageUrl } = req.body;
 
-					const sql = 'INSERT INTO tblcampaign (Name, Description, Location, TargetFund, Status) VALUES (?,?,?,?,?)';
-					const values = [name, description, location, targetFund, status];
+					const sql = 'INSERT INTO tblcampaign (Name, Description, Location, TargetFund, Status, ImageURL) VALUES (?,?,?,?,?,?)';
+					const values = [name, description, location, targetFund, status, imageUrl];
 					con.query(sql, values, async function (err, result) {
 						if (err) res.status(500).json({
 							message: 'An error occured while performing action'
@@ -1074,8 +1200,15 @@ web3.eth.net.isListening()
 							
 							const campaignID = result.insertId;
 
-							let campaignStatusData = await erc20Contract.methods.setCampaignStatus(campaignID, 2).encodeABI();
-							const setCampaignStatus =  buildSendTransaction(mainAccount, mainAccountKey, campaignStatusData);
+							//let campaignStatusData = await erc20Contract.methods.setCampaignStatus(parseInt(campaignID), 1).encodeABI();
+							//const setCampaignStatus =  buildSendTransaction(mainAccount, mainAccountKey, campaignStatusData);
+
+
+							let campaignStatusData = await erc20Contract.methods.setCampaignStatus(campaignID, 1).encodeABI();
+							const setCampaignStatusX =  buildSendTransaction(mainAccount, mainAccountKey, campaignStatusData );
+							//onsole.log('Successfully deposited ' + amount + ' to ' + req.session.address);
+							//let campaignTargetFundData = await erc20Contract.methods.setTargetFund(campaignID, targetFund).encodeABI();
+							//const setCampaignTargetFund =  buildSendTransaction(mainAccount, mainAccountKey, campaignTargetFundData);
 							
 							console.log("Created campaign ", campaignID);
 							res.status(201).json({
@@ -1118,6 +1251,49 @@ web3.eth.net.isListening()
 					message: 'An error occured while performing action. '
 				});
 			}
+		});
+
+		// ADMIN: SET CAMPAIGN STATUS
+		app.post('/api/admin/setcampaignstatus', adminAuthenticationMiddleware, async function (req, res) {
+			try {
+				const { status, id } = req.body;
+
+				const CampaignStatus= {
+					Nonexistent: 0, 
+					Open: 1, 
+					Closed: 2, 
+					Completed: 3, 
+					Cancelled: 4
+				 }
+
+				const sql = 'UPDATE tblcampaign SET Status = ? WHERE RKEY = ?';
+				const values = [status, id];
+				con.query(sql, values, async function (err, result) {
+					if (err) res.status(500).json({
+						message: 'An error occured while performing action'
+					});
+					
+					if(result.affectedRows > 0)
+					{
+						let campaignStatusData = await erc20Contract.methods.setCampaignStatus(id, CampaignStatus[status]).encodeABI();
+						const setCampaignStatusX =  buildSendTransaction(mainAccount, mainAccountKey, campaignStatusData );
+						
+						console.log('Updated campaign status of ', id, ' to ', status);
+						res.status(201).json({
+							message: 'Success'
+						});
+						
+						
+					}
+					
+				});
+
+					
+				} catch (error) {
+					res.status(500).json({
+						message: 'An error occured while performing action'
+					});
+				}
 		});
 
 		// ADMIN: BALANCE
@@ -1216,3 +1392,4 @@ async function getProfile(email, callback){
 		callback(err, result);
 	});
 }
+
