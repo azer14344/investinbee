@@ -17,6 +17,8 @@ const mainAccount = process.env.MAIN_ACCOUNT;
 const mainAccountKey = Buffer.from(process.env.MAIN_ACCOUNT_KEY, 'hex');
 const salt = process.env.DB_PASSWORD_SALT;
 
+//test
+
 // Investment Contract
 const contractABI = [
 	{
